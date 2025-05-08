@@ -3,13 +3,37 @@ import {
   Card,
   CardContent,
   Typography,
-  Grid,
   Button,
   CircularProgress,
   Container,
   Stack,
+  Grid,
 } from "@mui/material";
 import { IProduct } from "../types";
+
+const dummyProducts: IProduct[] = [
+  {
+    productID: "P001",
+    description: "Wireless Mouse",
+    weight: 0.2,
+    price: 19.99,
+    notes: "Ergonomic design, USB-C charging",
+  },
+  {
+    productID: "P002",
+    description: "Mechanical Keyboard",
+    weight: 1.0,
+    price: 89.99,
+    notes: "RGB backlight, blue switches",
+  },
+  {
+    productID: "P003",
+    description: "HD Webcam",
+    weight: 0.3,
+    price: 49.99,
+    notes: "1080p resolution, built-in mic",
+  },
+];
 
 const Products: React.FC = () => {
   const [products, setProducts] = useState<IProduct[]>([]);
@@ -18,9 +42,9 @@ const Products: React.FC = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const res = await fetch("https://localhost:5001/api/products");
-        const data = await res.json();
-        setProducts(data);
+        // Simulate delay and set dummy data
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        setProducts(dummyProducts);
       } catch (err) {
         console.error("Error fetching products:", err);
       } finally {
@@ -46,12 +70,13 @@ const Products: React.FC = () => {
       </Typography>
       <Grid container spacing={3}>
         {products.map((product) => (
-        //   <Grid item xs={12} md={6} lg={4} key={product.productID}>
-
-<Card elevation={3}>
+          <Grid item xs={12} md={6} lg={4} key={product.productID}>
+            <Card elevation={3}>
               <CardContent>
                 <Typography variant="h6">{product.description}</Typography>
-                <Typography color="text.secondary">ID: {product.productID}</Typography>
+                <Typography color="text.secondary">
+                  ID: {product.productID}
+                </Typography>
                 <Typography>Price: ${product.price.toFixed(2)}</Typography>
                 <Typography>Weight: {product.weight} kg</Typography>
                 <Typography variant="body2" mt={1}>
@@ -62,7 +87,6 @@ const Products: React.FC = () => {
                     variant="contained"
                     size="small"
                     onClick={() => {
-                      // Navigate to edit form or open modal
                       console.log("Edit", product.productID);
                     }}
                   >
