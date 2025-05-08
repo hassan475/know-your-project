@@ -108,7 +108,7 @@ const Products: React.FC = () => {
     (async () => {
       setLoading(true);
       try {
-        const aiRes = await fetch("/api/ai-search", {
+        const aiRes = await fetch("https://know-your-project20250508145247.azurewebsites.net/api/AiSearch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ query: debouncedQuery }),

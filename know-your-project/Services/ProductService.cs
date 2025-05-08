@@ -1,13 +1,7 @@
 ﻿using Azure;
 using Azure.Data.Tables;
-using Azure.Identity;
 using know_your_project.Common;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.WindowsAzure.Storage;
-using Microsoft.WindowsAzure.Storage.Auth;
-using Microsoft.WindowsAzure.Storage.Table;
 using System.Net;
-using System.Xml;
 
 namespace know_your_project.Services
 {
@@ -20,19 +14,12 @@ namespace know_your_project.Services
         }
 
         public async Task<IEnumerable<Product>> GetProducts() 
-        {
-            Console.WriteLine("Get Products Called");
-           
+        {           
             var Products = new List<Product>(); 
             await foreach (var entity in tableClient.QueryAsync<Product>())
             {
-                Console.WriteLine($"PartitionKey: {entity.PartitionKey}, RowKey: {entity.RowKey}");
-
                 Products.Add(entity);
-
             }
-
-
             return Products;
         }
 
@@ -46,9 +33,7 @@ namespace know_your_project.Services
             {
                 return entity;
             }
-
             return null;
-
         }
 
         public async Task<HttpResponseMessage> UpdateProduct(Product product)
@@ -68,6 +53,4 @@ namespace know_your_project.Services
               return new HttpResponseMessage(HttpStatusCode.BadRequest);
         }
     }
-
-    
 }

@@ -1,5 +1,6 @@
 ﻿// Controllers/AiSearchController.cs
 using know_your_project.Common;
+using know_your_project.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 
@@ -8,10 +9,12 @@ using System.Text.Json;
 public class AiSearchController : ControllerBase
 {
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IProductService _productService;
 
-    public AiSearchController(IHttpClientFactory httpClientFactory)
+    public AiSearchController(IHttpClientFactory httpClientFactory, IProductService productService)
     {
         _httpClientFactory = httpClientFactory;
+        _productService = productService;
     }
 
     [HttpPost]
@@ -56,6 +59,33 @@ public class AiSearchController : ControllerBase
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
             ?? new List<string>();
 
-        return Ok(keywords);
+
+        // 2) Fetch ALL products (or a base set) from your service
+        var allProducts = await _productService.GetProducts();
+
+        // 3) Filter in‐memory by matching ANY keyword against Description or Notes
+        var filtered = allProducts
+                  .Where(p =>
+                  {
+                      bool textMatch = keywords.Any(kw =>
+                        (!string.IsNullOrEmpty(p.Description) &&
+                          p.Description.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                        || (!string.IsNullOrEmpty(p.Notes) &&
+                          p.Notes.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                      );
+
+                      // if ANY keyword parses to a number, treat it as a max price or max weight
+                      bool numberMatch = keywords
+                        .Select(kw => double.TryParse(kw, out var num) ? (double?)num : null)
+                        .Where(n => n.HasValue)
+                        .Any(n => p.Price <= n.Value || p.Weight <= n.Value);
+
+                      return textMatch || numberMatch;
+                  })
+                  .ToList();
+
+
+        // 4) Return the filtered list
+        return Ok(filtered);
     }
 }
