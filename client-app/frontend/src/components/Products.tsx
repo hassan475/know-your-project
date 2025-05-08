@@ -8,45 +8,50 @@ import {
   Container,
   Stack,
   Grid,
+  TextField,
+  InputAdornment,
 } from "@mui/material";
-import { IProduct } from "../types";
+import SearchIcon from "@mui/icons-material/Search";
 import { useNavigate } from "react-router-dom";
+import { IProduct } from "../types";
 
-const dummyProducts: IProduct[] = [
-  {
-    productID: "P001",
-    description: "Wireless Mouse",
-    weight: 0.2,
-    price: 19.99,
-    notes: "Ergonomic design, USB-C charging",
-  },
-  {
-    productID: "P002",
-    description: "Mechanical Keyboard",
-    weight: 1.0,
-    price: 89.99,
-    notes: "RGB backlight, blue switches",
-  },
-  {
-    productID: "P003",
-    description: "HD Webcam",
-    weight: 0.3,
-    price: 49.99,
-    notes: "1080p resolution, built-in mic",
-  },
-];
+// Define the API response shape
+interface ApiProduct {
+  partitionKey: string;
+  rowKey: string;
+  timestamp: string;
+  productId: string;
+  description: string;
+  weight: number;
+  price: number;
+  notes: string;
+  eTag: string;
+}
 
 const Products: React.FC = () => {
   const [products, setProducts] = useState<IProduct[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const navigate = useNavigate();    // ← pull navigate from react-router
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        // Simulate delay and set dummy data
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        setProducts(dummyProducts);
+        const res = await fetch(
+          "https://know-your-project20250508145247.azurewebsites.net/GetProducts"
+        );
+        if (!res.ok) throw new Error("Failed to fetch products");
+
+        const data: ApiProduct[] = await res.json();
+        // Map API fields to our IProduct type
+        const mapped: IProduct[] = data.map((item) => ({
+          productID: item.productId,
+          description: item.description,
+          weight: item.weight,
+          price: item.price,
+          notes: item.notes,
+        }));
+        setProducts(mapped);
       } catch (err) {
         console.error("Error fetching products:", err);
       } finally {
@@ -56,6 +61,20 @@ const Products: React.FC = () => {
 
     fetchProducts();
   }, []);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    // TODO: call AI-powered search endpoint here
+  };
+
+  const filtered = products.filter((p) => {
+    const q = searchQuery.toLowerCase();
+    return (
+      p.productID.toLowerCase().includes(q) ||
+      p.description.toLowerCase().includes(q) ||
+      p.notes.toLowerCase().includes(q)
+    );
+  });
 
   if (loading) {
     return (
@@ -67,37 +86,62 @@ const Products: React.FC = () => {
 
   return (
     <Container sx={{ mt: 4 }}>
-      <Typography variant="h4" gutterBottom>
-        All Products
-      </Typography>
-      <Grid container spacing={3}>
-        {products.map((product) => (
-          <Grid item xs={12} md={6} lg={4} key={product.productID}>
-            <Card elevation={3}>
-              <CardContent>
-                <Typography variant="h6">{product.description}</Typography>
-                <Typography color="text.secondary">
-                  ID: {product.productID}
-                </Typography>
-                <Typography>Price: ${product.price.toFixed(2)}</Typography>
-                <Typography>Weight: {product.weight} kg</Typography>
-                <Typography variant="body2" mt={1}>
-                  {product.notes}
-                </Typography>
-                <Stack direction="row" justifyContent="flex-end" mt={2}>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    onClick={() => navigate(`/edit-product/${product.productID}`)}
-                  >
-                    Edit
-                  </Button>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+      <Stack direction="row" mb={3} spacing={2} alignItems="center">
+        <TextField
+          fullWidth
+          placeholder="Search products (e.g. RGB keyboard or charging mouse)"
+          value={searchQuery}
+          onChange={handleSearchChange}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon color="action" />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Stack>
+
+      {filtered.length === 0 ? (
+        <Typography>No products match “{searchQuery}.”</Typography>
+      ) : (
+        <Grid container spacing={3}>
+          {filtered.map((product) => (
+            <Grid item xs={12} md={6} lg={4} key={product.productID}>
+              <Card elevation={3}>
+                <CardContent>
+                  <Typography variant="h6">
+                    {product.description}
+                  </Typography>
+                  <Typography color="text.secondary">
+                    ID: {product.productID}
+                  </Typography>
+                  <Typography>
+                    Price: ${product.price.toFixed(2)}
+                  </Typography>
+                  <Typography>
+                    Weight: {product.weight} kg
+                  </Typography>
+                  <Typography variant="body2" mt={1}>
+                    {product.notes}
+                  </Typography>
+                  <Stack direction="row" justifyContent="flex-end" mt={2}>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() =>
+                        navigate(`/edit-product/${product.productID}`)
+                      }
+                    >
+                      Edit
+                    </Button>
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
     </Container>
   );
 };
