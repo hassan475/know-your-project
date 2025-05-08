@@ -10,6 +10,7 @@ import {
   Grid,
 } from "@mui/material";
 import { IProduct } from "../types";
+import { useNavigate } from "react-router-dom";
 
 const dummyProducts: IProduct[] = [
   {
@@ -38,6 +39,7 @@ const dummyProducts: IProduct[] = [
 const Products: React.FC = () => {
   const [products, setProducts] = useState<IProduct[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const navigate = useNavigate();    // ← pull navigate from react-router
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -86,9 +88,7 @@ const Products: React.FC = () => {
                   <Button
                     variant="contained"
                     size="small"
-                    onClick={() => {
-                      console.log("Edit", product.productID);
-                    }}
+                    onClick={() => navigate(`/edit-product/${product.productID}`)}
                   >
                     Edit
                   </Button>
