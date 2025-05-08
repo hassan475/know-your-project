@@ -13,55 +13,53 @@ import {
 } from "@mui/material";
 import { IProduct } from "../types";
 
-// Dummy data for editing before API is ready
-const dummyProducts: IProduct[] = [
-  {
-    productID: "P001",
-    description: "Wireless Mouse",
-    weight: 0.2,
-    price: 19.99,
-    notes: "Ergonomic design, USB-C charging",
-  },
-  {
-    productID: "P002",
-    description: "Mechanical Keyboard",
-    weight: 1.0,
-    price: 89.99,
-    notes: "RGB backlight, blue switches",
-  },
-  {
-    productID: "P003",
-    description: "HD Webcam",
-    weight: 0.3,
-    price: 49.99,
-    notes: "1080p resolution, built-in mic",
-  },
-];
+// API response shape for a single product
+interface ApiProduct {
+  partitionKey: string;
+  rowKey: string;
+  timestamp: string;
+  productId: string;
+  description: string;
+  weight: number;
+  price: number;
+  notes: string;
+  eTag: string;
+}
 
 const EditProductForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [product, setProduct] = useState<IProduct | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [saving, setSaving] = useState<boolean>(false);
 
-  // Simulate fetching existing product details using dummy data
+  // Fetch product details from API
   useEffect(() => {
     const fetchProduct = async () => {
-      // simulate network delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const found = dummyProducts.find((p) => p.productID === id);
-      if (found) {
-        setProduct(found);
-      } else {
-        console.warn("Product not found in dummy data");
-        setProduct({ productID: id || "", description: "", weight: 0, price: 0, notes: "" });
+      setLoading(true);
+      try {
+        const res = await fetch(
+          `https://know-your-project20250508145247.azurewebsites.net/GetProduct/${id}`
+        );
+        if (!res.ok) throw new Error("Failed to fetch product details");
+        const data: ApiProduct = await res.json();
+        setProduct({
+          productID: data.productId,
+          description: data.description,
+          weight: data.weight,
+          price: data.price,
+          notes: data.notes,
+        });
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchProduct();
   }, [id]);
 
-  if (loading || !product) {
+  if (loading) {
     return (
       <Container sx={{ textAlign: "center", mt: 4 }}>
         <CircularProgress />
@@ -69,31 +67,50 @@ const EditProductForm: React.FC = () => {
     );
   }
 
+  if (!product) {
+    return (
+      <Container sx={{ mt: 4 }}>
+        <Typography variant="h6">Product not found.</Typography>
+        <Button sx={{ mt: 2 }} variant="contained" onClick={() => navigate("/products")}>Back to List</Button>
+      </Container>
+    );
+  }
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setProduct((prev) =>
-      prev && {
-        ...prev,
-        [name]: name === "weight" || name === "price" ? parseFloat(value) : value,
-      }
-    );
+    setProduct(prev => prev && ({
+      ...prev,
+      [name]: name === "weight" || name === "price" ? parseFloat(value) : value,
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // For now, just log updated product
-    console.log("Updated product (dummy):", product);
-    alert("Product updated locally (dummy data)");
-    navigate("/products");
+    setSaving(true);
+    try {
+      const res = await fetch(
+        `https://know-your-project20250508145247.azurewebsites.net/UpdateProduct/${product.productID}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(product),
+        }
+      );
+      if (!res.ok) throw new Error("Failed to update product");
+      navigate("/products");
+    } catch (error) {
+      console.error(error);
+      alert("Error updating product");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <Container maxWidth="sm" sx={{ mt: 4 }}>
       <Card sx={{ p: 2, boxShadow: 3, borderRadius: 2 }}>
         <CardContent>
-          <Typography variant="h5" mb={2}>
-            Edit Product (Dummy)
-          </Typography>
+          <Typography variant="h5" mb={2}>Edit Product</Typography>
           <form onSubmit={handleSubmit}>
             <Grid container spacing={2}>
               <Grid item xs={12}>
@@ -153,8 +170,8 @@ const EditProductForm: React.FC = () => {
             </Grid>
             <Stack direction="row" spacing={2} justifyContent="flex-end" mt={3}>
               <Button variant="outlined" onClick={() => navigate("/products")}>Cancel</Button>
-              <Button type="submit" variant="contained">
-                Update
+              <Button type="submit" variant="contained" disabled={saving}>
+                {saving ? "Saving..." : "Update"}
               </Button>
             </Stack>
           </form>
