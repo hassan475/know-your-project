@@ -10,9 +10,11 @@ import {
   Grid,
   TextField,
   InputAdornment,
+  Box,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import { useNavigate } from "react-router-dom";
+import { QRCodeSVG } from 'qrcode.react';
 import { IProduct } from "../types";
 
 // Define the API response shape
@@ -106,40 +108,53 @@ const Products: React.FC = () => {
         <Typography>No products match “{searchQuery}.”</Typography>
       ) : (
         <Grid container spacing={3}>
-          {filtered.map((product) => (
-            <Grid item xs={12} md={6} lg={4} key={product.productID}>
-              <Card elevation={3}>
-                <CardContent>
-                  <Typography variant="h6">
-                    {product.description}
-                  </Typography>
-                  <Typography color="text.secondary">
-                    ID: {product.productID}
-                  </Typography>
-                  <Typography>
-                    Price: ${product.price.toFixed(2)}
-                  </Typography>
-                  <Typography>
-                    Weight: {product.weight} kg
-                  </Typography>
-                  <Typography variant="body2" mt={1}>
-                    {product.notes}
-                  </Typography>
-                  <Stack direction="row" justifyContent="flex-end" mt={2}>
-                    <Button
-                      variant="contained"
-                      size="small"
-                      onClick={() =>
-                        navigate(`/edit-product/${product.productID}`)
-                      }
-                    >
-                      Edit
-                    </Button>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
+          {filtered.map((product) => {
+            const productUrl = `${window.location.origin}/product/${product.productID}`;
+            return (
+              <Grid item xs={12} md={6} lg={4} key={product.productID}>
+                <Card elevation={3} sx={{ position: 'relative' }}>
+                  <CardContent>
+                    <Typography variant="h6">
+                      {product.description}
+                    </Typography>
+                    <Typography color="text.secondary">
+                      ID: {product.productID}
+                    </Typography>
+                    <Typography>
+                      Price: ${product.price.toFixed(2)}
+                    </Typography>
+                    <Typography>
+                      Weight: {product.weight} kg
+                    </Typography>
+                    <Typography variant="body2" mt={1}>
+                      {product.notes}
+                    </Typography>
+                    <Box sx={{ my: 2, display: 'flex', justifyContent: 'center' }}>
+                      <QRCodeSVG value={productUrl} size={100} />
+                    </Box>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => window.open(productUrl, '_blank')}
+                      >
+                        View
+                      </Button>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        onClick={() =>
+                          navigate(`/edit-product/${product.productID}`)
+                        }
+                      >
+                        Edit
+                      </Button>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+            );
+          })}
         </Grid>
       )}
     </Container>
