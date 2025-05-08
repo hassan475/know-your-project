@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -14,10 +14,10 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import { useNavigate } from "react-router-dom";
-import { QRCodeSVG } from "qrcode.react";
+import { QRCodeSVG } from 'qrcode.react';
 import { IProduct } from "../types";
 
-// Define the API response shape
+// Define API response shape
 interface ApiProduct {
   partitionKey: string;
   rowKey: string;
@@ -30,22 +30,33 @@ interface ApiProduct {
   eTag: string;
 }
 
+// Debounce hook
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debounced;
+}
+
 const Products: React.FC = () => {
   const [products, setProducts] = useState<IProduct[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const navigate = useNavigate();
 
+  // Fetch initial list
   useEffect(() => {
-    const fetchProducts = async () => {
+    const load = async () => {
       try {
+        setLoading(true);
         const res = await fetch(
           "https://know-your-project20250508145247.azurewebsites.net/GetProducts"
         );
         if (!res.ok) throw new Error("Failed to fetch products");
-
         const data: ApiProduct[] = await res.json();
-        const mapped: IProduct[] = data.map((item) => ({
+        const mapped: IProduct[] = data.map(item => ({
           productID: item.productId,
           description: item.description,
           weight: item.weight,
@@ -54,47 +65,73 @@ const Products: React.FC = () => {
         }));
         setProducts(mapped);
       } catch (err) {
-        console.error("Error fetching products:", err);
+        console.error(err);
       } finally {
         setLoading(false);
       }
     };
-
-    fetchProducts();
+    load();
   }, []);
 
-  // Handles user search and AI-powered search fallback
-  const handleSearchChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const q = e.target.value;
-    setSearchQuery(q);
+  // Debounce user query
+  const debouncedQuery = useDebounce(searchQuery, 500);
 
-    if (!q) {
-      // if empty query, reload base products
-      setLoading(true);
-      await new Promise((r) => setTimeout(r, 300));
-      setSearchQuery("");
-      setLoading(false);
+  // Trigger AI-search on debouncedQuery
+  useEffect(() => {
+    if (!debouncedQuery) {
+      // reload default list when query is cleared
+      (async () => {
+        setLoading(true);
+        try {
+          const res = await fetch(
+            "https://know-your-project20250508145247.azurewebsites.net/GetProducts"
+          );
+          if (!res.ok) throw new Error("Failed to fetch products");
+          const data: ApiProduct[] = await res.json();
+          const mapped: IProduct[] = data.map(item => ({
+            productID: item.productId,
+            description: item.description,
+            weight: item.weight,
+            price: item.price,
+            notes: item.notes,
+          }));
+          setProducts(mapped);
+        } catch {
+          // ignore
+        } finally {
+          setLoading(false);
+        }
+      })();
       return;
     }
 
-    // Call AI search endpoint
-    try {
+    (async () => {
       setLoading(true);
-      const aiRes = await fetch("/api/ai-search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: q }),
-      });
-      const aiResults: IProduct[] = await aiRes.json();
-      setProducts(aiResults);
-    } catch (err) {
-      console.error("AI search failed, falling back to client filter", err);
-      // fallback client filter
-      // no change to products array here
-    } finally {
-      setLoading(false);
-    }
-  };
+      try {
+        const aiRes = await fetch("/api/ai-search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: debouncedQuery }),
+        });
+        if (!aiRes.ok) throw new Error("AI search failed");
+        const results: IProduct[] = await aiRes.json();
+        setProducts(results);
+      } catch (err) {
+        console.error(err);
+        // fallback client filter
+        setProducts(prev =>
+          prev.filter(p =>
+            [p.productID, p.description, p.notes]
+              .join(" ")
+              .toLowerCase()
+              .includes(debouncedQuery.toLowerCase())
+          )
+        );
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [debouncedQuery]);
 
   if (loading) {
     return (
@@ -109,9 +146,9 @@ const Products: React.FC = () => {
       <Stack direction="row" mb={3} spacing={2} alignItems="center">
         <TextField
           fullWidth
-          placeholder="Search products (e.g. Find charging mouse under )"
+          placeholder="Search products (e.g. 'Find charging mouse under $20')"
           value={searchQuery}
-          onChange={handleSearchChange}
+          onChange={e => setSearchQuery(e.target.value)}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -121,49 +158,24 @@ const Products: React.FC = () => {
           }}
         />
       </Stack>
-
       <Grid container spacing={3}>
-        {products.map((product) => {
+        {products.map(product => {
           const productUrl = `${window.location.origin}/product/${product.productID}`;
           return (
             <Grid item xs={12} md={6} lg={4} key={product.productID}>
-              <Card elevation={3} sx={{ position: "relative" }}>
+              <Card elevation={3}>
                 <CardContent>
                   <Typography variant="h6">{product.description}</Typography>
-                  <Typography color="text.secondary">
-                    ID: {product.productID}
-                  </Typography>
+                  <Typography color="text.secondary">ID: {product.productID}</Typography>
                   <Typography>Price: ${product.price.toFixed(2)}</Typography>
                   <Typography>Weight: {product.weight} kg</Typography>
-                  <Typography variant="body2" mt={1}>
-                    {product.notes}
-                  </Typography>
-                  <Box
-                    sx={{ my: 2, display: "flex", justifyContent: "center" }}
-                  >
+                  <Typography variant="body2" mt={1}>{product.notes}</Typography>
+                  <Box sx={{ my: 2, textAlign: 'center' }}>
                     <QRCodeSVG value={productUrl} size={100} />
                   </Box>
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    alignItems="center"
-                  >
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => navigate(`/product/${product.productID}`)}
-                    >
-                      View
-                    </Button>
-                    <Button
-                      variant="contained"
-                      size="small"
-                      onClick={() =>
-                        navigate(`/edit-product/${product.productID}`)
-                      }
-                    >
-                      Edit
-                    </Button>
+                  <Stack direction="row" justifyContent="space-between">
+                    <Button variant="outlined" size="small" onClick={() => navigate(`/product/${product.productID}`)}>View</Button>
+                    <Button variant="contained" size="small" onClick={() => navigate(`/edit-product/${product.productID}`)}>Edit</Button>
                   </Stack>
                 </CardContent>
               </Card>
